@@ -1,60 +1,73 @@
-class CheckoutSupermarket:
-    def __init__(self):
-        # Inisialisasi antrian kosong
-        self.antrian = []
+import streamlit as st
 
-    def tambah_pelanggan(self, nama_pelanggan):
-        """Fungsi Enqueue: Menambahkan pelanggan ke belakang antrian"""
-        self.antrian.append(nama_pelanggan)
-        print(f"🛒 {nama_pelanggan} telah masuk ke antrian checkout.")
+# --- KONFIGURASI HALAMAN ---
+st.set_page_config(page_title="Simulasi Kasir Supermarket", page_icon="🛒", layout="centered")
 
-    def layani_pelanggan(self):
-        """Fungsi Dequeue: Melayani pelanggan di urutan paling depan (FIFO)"""
-        if not self.apakah_kosong():
-            # Mengambil elemen pertama (indeks 0) sesuai prinsip FIFO
-            pelanggan_dilayani = self.antrian.pop(0)
-            print(f"💳 Kasir sedang melayani: {pelanggan_dilayani}. Selesai!")
+# --- INISIALISASI QUEUE DI SESSION STATE ---
+# Ini penting agar data antrian tetap tersimpan saat halaman merefresh otomatis
+if "antrian_supermarket" not in st.session_state:
+    st.session_state.antrian_supermarket = []
+
+# Variabel bantuan untuk mempermudah pembacaan kode
+antrian = st.session_state.antrian_supermarket
+
+# --- JUDUL APLIKASI ---
+st.title("🛒 Simulasi Checkout Supermarket")
+st.caption("Struktur Data: Queue (First In, First Out - FIFO)")
+st.write("---")
+
+# --- TAMPILAN UTAMA (LAYOUT KOLOM) ---
+kolom_kiri, kolom_kanan = st.columns([1, 1])
+
+# --- KOLOM KIRI: KONTROL ANTRIAN ---
+with kolom_kiri:
+    st.subheader("⚙️ Panel Kontrol Kasir")
+    
+    # Form untuk Tambah Pelanggan (Enqueue)
+    with st.form(key="form_tambah", clear_on_submit=True):
+        nama_baru = st.text_input("Nama Pelanggan Baru:", placeholder="Masukkan nama...")
+        tombol_tambah = st.form_submit_button(label="Masuk Antrian ➕")
+        
+        if tombol_tambah:
+            if nama_baru.strip() != "":
+                antrian.append(nama_baru.strip()) # Operasi Enqueue (tambah ke belakang)
+                st.success(f"**{nama_baru}** berhasil masuk antrian!")
+            else:
+                st.warning("Nama tidak boleh kosong!")
+
+    st.write("") # Jarak spacer
+
+    # Tombol untuk Melayani Pelanggan (Dequeue)
+    st.markdown("**Aksi Kasir:**")
+    if st.button("Layani Pelanggan Depan 💳", type="primary", use_container_width=True):
+        if len(antrian) > 0:
+            pelanggan_dilayani = antrian.pop(0) # Operasi Dequeue (ambil indeks 0 / paling depan)
+            st.toast(f"🎉 {pelanggan_dilayani} selesai dilayani!", icon="✅")
+            st.info(f"⚡ Sedang dilayani & selesai: **{pelanggan_dilayani}**")
         else:
-            print("🔔 Semua antrian kasir kosong. Tidak ada pelanggan yang mengantri.")
+            st.error("Antrian kosong! Tidak ada pelanggan untuk dilayani.")
+            
+    # Tombol Reset
+    if st.button("Kosongkan Semua Antrian 🔄", use_container_width=True):
+        st.session_state.antrian_supermarket = []
+        st.rerun()
 
-    def lihat_antrian(self):
-        """Menampilkan semua pelanggan yang sedang mengantri saat ini"""
-        if not self.apakah_kosong():
-            print("\n--- DAFTAR ANTRIAN KASIR SUPERMARKET ---")
-            for urutan, pelanggan in enumerate(self.antrian, start=1):
-                print(f"{urutan}. {pelanggan}")
-            print("----------------------------------------")
-        else:
-            print("ℹ️ Antrian saat ini kosong.")
-
-    def apakah_kosong(self):
-        """Mengecek apakah antrian sedang kosong"""
-        return len(self.antrian) == 0
-
-    def total_antrian(self):
-        """Melihat jumlah orang yang sedang mengantri"""
-        return len(self.antrian)
-
-
-# === SIMULASI PENGGUNAAN KASIR SUPERMARKET ===
-kasir_1 = CheckoutSupermarket()
-
-# 1. Pelanggan mulai berdatangan dan masuk antrian
-kasir_1.tambah_pelanggan("Andi")
-kasir_1.tambah_pelanggan("Budi")
-kasir_1.tambah_pelanggan("Citra")
-
-# 2. Melihat kondisi antrian saat ini
-kasir_1.lihat_antrian()
-print(f"Total orang mengantri: {kasir_1.total_antrian()} orang.\n")
-
-# 3. Kasir mulai melayani pelanggan (FIFO: Andi harus dilayani duluan)
-kasir_1.layani_pelanggan()
-kasir_1.layani_pelanggan()
-
-# 4. Melihat sisa antrian setelah dua orang dilayani
-kasir_1.lihat_antrian()
-
-# 5. Pelanggan baru datang lagi
-kasir_1.tambah_pelanggan("Dewi")
-kasir_1.lihat_antrian()
+# --- KOLOM KANAN: MONITOR ANTRIAN ---
+with kolom_kanan:
+    st.subheader("📋 Visualisasi Antrian")
+    
+    total_orang = len(antrian)
+    st.metric(label="Total Antrian Saat Ini", value=f"{total_orang} Orang")
+    
+    if total_orang > 0:
+        st.write("**Urutan Barisan (Depan ➡️ Belakang):**")
+        
+        # Menampilkan daftar antrian dengan visual menarik
+        for indeks, pelanggan in enumerate(antrian):
+            if indeks == 0:
+                # Pelanggan paling depan diberi tanda khusus
+                st.info(f"🥇 **[1] {pelanggan}** ← *Giliran berikutnya!*")
+            else:
+                st.markdown(f"👤 **[{indeks + 1}]** {pelanggan}")
+    else:
+        st.info("Jalur kasir kosong. Silakan tambah pelanggan di panel sebelah kiri.")
