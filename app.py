@@ -3,159 +3,180 @@ import time
 
 # 1. KONFIGURASI HALAMAN UTAMA
 st.set_page_config(
-    page_title="Sistem Kasir & Antrian Supermarket", 
+    page_title="Sistem Kasir Supermarket Advance", 
     page_icon="🛒", 
     layout="wide"
 )
 
-# 2. DAFTAR MENU BARANG SUPERMARKET (DATABASE)
+# 2. DATABASE BARANG & DISKON
 MENU_BARANG = {
     "Mie Instan": 3500,
     "Susu Kotak": 6000,
     "Roti Tawar": 15000,
     "Minyak Goreng 2L": 38000,
     "Sabun Mandi": 4500,
-    "Kopi Sachet": 2000,
-    "Cemilan Keripik": 8500,
     "Air Mineral": 4000
 }
 
-# 3. MANAJEMEN STATE (MEMORI PERSISTEN STREAMLIT)
+KODE_DISKON = {
+    "HEMAT10": 0.10,  # Diskon 10%
+    "UNTUNG20": 0.20   # Diskon 20%
+}
+
+# 3. MANAJEMEN STATE (MEMORI INTERNAL STREAMLIT)
 if "antrian_kasir" not in st.session_state:
-    st.session_state.antrian_kasir = []  # Menyimpan list dari dictionary pelanggan
+    st.session_state.antrian_kasir = []
 
 if "keranjang_sementara" not in st.session_state:
-    st.session_state.keranjang_sementara = {}  # Menyimpan item yang sedang dipilih sebelum masuk antrian
+    st.session_state.keranjang_sementara = {}
 
-# Referensi variabel state agar kode lebih pendek
 daftar_antrian = st.session_state.antrian_kasir
 keranjang = st.session_state.keranjang_sementara
 
-# 4. HEADER & JUDUL APLIKASI
-st.title("🖥️ Sistem Integrasi: Menu Belanja & Antrian Kasir")
-st.subheader("Implementasi Struktur Data: Linear Queue (First In, First Out - FIFO)")
-st.write("Simulasi nyata kasir supermarket: Pelanggan memilih barang belanjaan, masuk antrian, lalu dilayani sesuai urutan kedatangan.")
+# 4. HEADER & JUDUL UTAMA PRESENTASI
+st.title("🖥️ Sistem Kasir & Antrian Supermarket (Edisi Advance)")
+st.caption("Implementasi Struktur Data Queue (FIFO) dengan Fitur Transaksi Finansial Realistis")
 st.markdown("---")
 
-# 5. PEMBAGIAN LAYAR (3 KOLOM UTAMA)
-kolom_menu, kolom_kontrol, kolom_visual = st.columns([1.2, 1.1, 1.3])
+# 5. PEMBAGIAN LAYAR MENJADI 3 KOLOM
+kolom_menu, kolom_kontrol, kolom_visual = st.columns([1.1, 1.1, 1.3])
 
-# ==================== KOLOM 1: MENU BELANJA & KERANJANG ====================
+# ==================== KOLOM 1: MENU BELANJAAN ====================
 with kolom_menu:
-    st.header("🛍️ 1. Menu Belanjaan")
-    st.write("Pilih barang yang ingin dibeli pelanggan saat ini:")
+    st.header("🛍️ 1. Ambil Barang")
     
-    # Menampilkan daftar barang dalam bentuk interaktif
     for barang, harga in MENU_BARANG.items():
         col_item, col_btn = st.columns([2, 1])
         col_item.write(f"**{barang}** — Rp {harga:,}")
-        
-        # Tombol tambah ke keranjang sementara
-        if col_btn.button(f"Tambah ➕", key=f"btn_{barang}"):
-            if barang in keranjang:
-                keranjang[barang] += 1
-            else:
-                keranjang[barang] = 1
-            st.toast(f"{barang} dimasukkan ke keranjang!", icon="📥")
+        if col_btn.button(f"Tambah ➕", key=f"add_{barang}"):
+            keranjang[barang] = keranjang.get(barang, 0) + 1
+            st.toast(f"{barang} dimasukkan!", icon="📥")
 
     st.write("---")
-    st.write("### 🛒 Keranjang Belanja Saat Ini:")
+    st.write("### 🛒 Isi Keranjang Sekarang:")
     
-    total_belanja_sementara = 0
+    total_bruto = 0
     if keranjang:
         for barang, jumlah in list(keranjang.items()):
             subtotal = MENU_BARANG[barang] * jumlah
-            total_belanja_sementara += subtotal
+            total_bruto += subtotal
             st.caption(f"▪️ {barang} (x{jumlah}) — Rp {subtotal:,}")
         
-        st.write(f"**Total Sementara: Rp {total_belanja_sementara:,}**")
+        st.write(f"**Subtotal Belanja: Rp {total_bruto:,}**")
         
-        # Tombol reset keranjang belanjaan
-        if st.button("Kosongkan Keranjang 🗑️"):
+        if st.button("Kosongkan Keranjang 🗑️", use_container_width=True):
             st.session_state.keranjang_sementara = {}
             st.rerun()
     else:
-        st.info("Keranjang belanja masih kosong. Silakan klik 'Tambah'.")
+        st.info("Keranjang kosong. Pilih barang di atas.")
 
-# ==================== KOLOM 2: PANEL KONTROL KASIR ====================
+# ==================== KOLOM 2: OPERASI QUEUE ====================
 with kolom_kontrol:
-    st.header("⚙️ 2. Operasi Queue")
+    st.header("⚙️ 2. Gerbang Antrian")
     
-    # --- OPERASI ENQUEUE (MASUKKAN PELANGGAN BESERTA BELANJAANNYA) ---
-    st.write("### Enqueue (Masuk Antrian)")
-    with st.form(key="form_antrian", clear_on_submit=True):
-        nama_pelanggan = st.text_input("Nama Pelanggan:", placeholder="Masukkan nama...")
-        tombol_masuk = st.form_submit_button(label="Kirim ke Jalur Kasir ➡️")
+    st.write("### Fungsi Enqueue (Masuk Barisan)")
+    with st.form(key="form_pendaftaran", clear_on_submit=True):
+        nama_pelanggan = st.text_input("Nama Pelanggan:", placeholder="Nama pembeli...")
+        kode_input = st.text_input("Kode Diskon (Opsional):", placeholder="Contoh: HEMAT10 / UNTUNG20").upper()
+        tombol_masuk = st.form_submit_button(label="Giring ke Jalur Antrian ➡️")
         
         if tombol_masuk:
             if not nama_pelanggan.strip():
-                st.error("Gagal: Nama pelanggan harus diisi!")
+                st.error("Gagal: Nama pembeli tidak boleh kosong!")
             elif not keranjang:
-                st.error("Gagal: Pelanggan belum mengambil barang di Menu Belanja!")
+                st.error("Gagal: Pelanggan belum belanja apapun!")
             else:
-                # Membuat objek data pelanggan baru untuk disimpan di Queue
-                data_pelanggan = {
+                # Menghitung diskon jika kode promo valid
+                potongan = KODE_DISKON.get(kode_input, 0.0)
+                nilai_diskon = int(total_bruto * potongan)
+                total_akhir = total_bruto - nilai_diskon
+                
+                # ENQUEUE: Memasukkan objek Dictionary lengkap ke ujung belakang barisan
+                data_pembeli = {
                     "nama": nama_pelanggan.strip(),
                     "item_belanja": keranjang.copy(),
-                    "total_harga": total_belanja_sementara
+                    "total_tagihan": total_akhir,
+                    "diskon_didapat": nilai_diskon
                 }
-                # ENQUEUE: Tambahkan ke data paling belakang list
-                daftar_antrian.append(data_pelanggan)
-                
-                # Reset keranjang sementara untuk pelanggan berikutnya
-                st.session_state.keranjang_sementara = {}
-                st.success(f"🎉 **{nama_pelanggan}** resmi mengantri!")
+                daftar_antrian.append(data_pembeli)
+                st.session_state.keranjang_sementara = {} # Reset wadah belanja pembeli selanjutnya
+                st.success(f"🎉 **{nama_pelanggan}** masuk antrian!")
                 st.rerun()
 
     st.write("---")
-
-    # --- OPERASI DEQUEUE (LAYANI PELANGGAN TERDEPAN) ---
-    st.write("### Dequeue (Proses Kasir)")
-    if st.button("Layani Pelanggan Terdepan 💳", type="primary", use_container_width=True):
-        if len(daftar_antrian) > 0:
-            # DEQUEUE: Mengambil dan menghapus elemen indeks ke-0 (paling depan)
-            pelanggan_dilayani = daftar_antrian.pop(0)
-            
-            # Animasi visual pemindaian barang
-            with st.spinner(f"Kasir sedang memindai belanjaan {pelanggan_dilayani['nama']}..."):
-                time.sleep(1.5)
-            
-            st.success(f"✅ Selesai! **{pelanggan_dilayani['nama']}** membayar sebesar **Rp {pelanggan_dilayani['total_harga']:,}**")
-            st.balloons()
+    
+    st.write("### Fungsi Dequeue (Proses Meja Kasir)")
+    if len(daftar_antrian) > 0:
+        p_depan = daftar_antrian[0]
+        st.warning(f"Pelanggan Terdepan: **{p_depan['nama']}** (Tagihan: Rp {p_depan['total_tagihan']:,})")
+        
+        # Fitur Baru: Pilih Metode Pembayaran
+        metode_bayar = st.radio("Metode Pembayaran:", ["Tunai (Cash)", "QRIS / Digital Payment"])
+        
+        uang_dibayar = 0
+        pembayaran_sah = False
+        
+        if metode_bayar == "Tunai (Cash)":
+            uang_dibayar = st.number_input("Jumlah Uang Tunai Pembeli (Rp):", min_value=0, step=5000)
+            if uang_dibayar >= p_depan['total_tagihan']:
+                st.success(f"Uang Pas/Lebih. Kembalian: Rp {uang_dibayar - p_depan['total_tagihan']:,}")
+                pembayaran_sah = True
+            else:
+                st.error("Uang yang dimasukkan kurang!")
         else:
-            st.warning("⚠️ Operasi Gagal: Jalur antrian kasir kosong!")
+            st.info("Pindai Kode QR Berhasil. Pembayaran digital otomatis terverifikasi lunas.")
+            pembayaran_sah = True
+            
+        if st.button("Selesaikan Pelayanan & Cetak Struk 💳", type="primary", use_container_width=True, disabled=not pembayaran_sah):
+            # DEQUEUE: Mengeluarkan orang urutan nomor 0 dari barisan
+            pelanggan_keluar = daftar_antrian.pop(0)
+            with st.spinner("Mencetak Nota Transaksi..."):
+                time.sleep(1)
+            st.success(f"Sukses! Struk belanja milik **{pelanggan_keluar['nama']}** telah dicetak.")
+            st.balloons()
+            st.rerun()
+    else:
+        st.info("Tidak ada transaksi berjalan. Antrian kosong.")
 
-    st.write("")
-    if st.button("Reset Seluruh Sistem 🔄", use_container_width=True):
+# ==================== KOLOM 3: MONITOR KASIR REAL-TIME ====================
+with kolom_visual:
+    st.header("📋 3. Monitor & Pembatalan")
+    
+    total_orang = len(daftar_antrian)
+    st.metric(label="Panjang Antrian Saat Ini", value=f"{total_orang} Pelanggan")
+    
+    st.write("### Visualisasi Lintasan Antrian:")
+    if total_orang > 0:
+        # Gunakan list salinan agar aman saat ada operasi hapus item di tengah jalan
+        for urutan, p in enumerate(list(daftar_antrian), start=1):
+            detail_barang = ", ".join([f"{k} (x{v})" for k, v in p['item_belanja'].items()])
+            
+            # Membuat kotak pembungkus info per pembeli
+            with st.container(border=True):
+                col_info_antrian, col_aksi_batal = st.columns([3, 1])
+                
+                with col_info_antrian:
+                    if urutan == 1:
+                        st.markdown(f"🥇 **[URUTAN 1 - DI DEPAN KASIR]** — **{p['nama']}**")
+                    else:
+                        st.markdown(f"👤 **[Posisi {urutan}]** — **{p['nama']}**")
+                    st.caption(f"🛒 Items: {detail_barang} | Potongan: Rp {p['diskon_didapat']:,}")
+                    st.markdown(f"💰 **Total Tagihan: Rp {p['total_tagihan']:,}**")
+                
+                # Fitur Baru: Membatalkan antrian di posisi manapun secara acak
+                with col_aksi_batal:
+                    st.write("") # Spacer ketukan ke bawah
+                    if st.button("Batal ❌", key=f"cancel_{urutan}_{p['nama']}"):
+                        # Menghapus elemen berdasarkan indeks yang dipilih pengguna
+                        pembeli_batal = daftar_antrian.pop(urutan - 1)
+                        st.toast(f"{pembeli_batal['nama']} keluar dari antrian!", icon="⚠️")
+                        st.rerun()
+                        
+        st.caption("💡 *Catatan Teknis Presentasi: Menekan tombol 'Batal' menguji fungsi manipulasi indeks larik/list di luar fungsi Queue standar.*")
+    else:
+        st.success("🎉 Jalur kasir aman terkendali. Tidak ada antrian terdeteksi.")
+        
+    if st.button("Reset Sistem Menyeluruh 🔄", use_container_width=True):
         st.session_state.antrian_kasir = []
         st.session_state.keranjang_sementara = {}
         st.rerun()
-
-# ==================== KOLOM 3: MONITOR VISUALISASI ====================
-with kolom_visual:
-    st.header("📋 3. Monitor Kasir")
-    
-    jumlah_antrian = len(daftar_antrian)
-    st.metric(label="Total Orang di Jalur Kasir", value=f"{jumlah_antrian} Pelanggan")
-    
-    st.write("### Garis Antrian Riil:")
-    if jumlah_antrian > 0:
-        for urutan, p in enumerate(daftar_antrian, start=1):
-            # Menghias tampilan detail belanjaan per orang di antrian
-            detail_barang = ", ".join([f"{k} (x{v})" for k, v in p['item_belanja'].items()])
-            
-            if urutan == 1:
-                st.info(
-                    f"🥇 **[URUTAN DEPAN]** — **{p['nama']}**\n"
-                    f"🛒 Belanjaan: *{detail_barang}*\n\n"
-                    f"💰 **Total Tagihan: Rp {p['total_harga']:,}**"
-                )
-            else:
-                st.markdown(
-                    f"👤 **[Urutan {urutan}]** — **{p['nama']}**\n"
-                    f"📦 Barang: *{detail_barang}* | Total: Rp {p['total_harga']:,}\n"
-                    f"---"
-                )
-        st.caption("⬆️ Pelanggan posisi teratas akan diproses keluar terlebih dahulu (FIFO).")
-    else:
-        st.success("😎 Jalur kasir kosong bersih! Semua pelanggan telah selesai dilayani.")
